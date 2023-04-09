@@ -70,6 +70,7 @@ class GLXPlatform : public GLPlatform
       return ret;
 
     bool is_direct = false;
+    bool didnt_get_fbconfig_from_visual = false;
 
     if(GLX.glXIsDirect)
       is_direct = GLX.glXIsDirect(share.dpy, share.ctx);
@@ -86,11 +87,30 @@ class GLXPlatform : public GLPlatform
         visAttribs[i++] = GLX_FBCONFIG_ID;
         visAttribs[i++] = fbcfgID;
       }
+      else
+      {
+        didnt_get_fbconfig_from_visual = true;
+      }
     }
 
     int numCfgs = 0;
+    int selectedCfg = 0;
     GLXFBConfig *fbcfg =
         GLX.glXChooseFBConfig(share.dpy, DefaultScreen(share.dpy), visAttribs, &numCfgs);
+
+    if (didnt_get_fbconfig_from_visual)
+    {
+        for (int i=0; i<numCfgs; i++)
+        {
+            int visId = -1;
+            GLX.glXGetFBConfigAttrib(share.dpy, fbcfg[i], GLX_VISUAL_ID, &visId);
+            if (visId == (int)share.cfg->visualid)
+            {
+                selectedCfg = i;
+                break;
+            }
+        }
+    }
 
     int attribs[64] = {0};
     i = 0;
@@ -113,7 +133,7 @@ class GLXPlatform : public GLPlatform
       attribs[i++] = GLX_CONTEXT_PROFILE_MASK_ARB;
       attribs[i++] = GLX_CONTEXT_CORE_PROFILE_BIT_ARB;
     }
-    ret.ctx = GLX.glXCreateContextAttribsARB(share.dpy, fbcfg[0], share.ctx, is_direct, attribs);
+    ret.ctx = GLX.glXCreateContextAttribsARB(share.dpy, fbcfg[selectedCfg], share.ctx, is_direct, attribs);
 
     XFree(fbcfg);
 
